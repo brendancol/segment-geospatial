@@ -238,6 +238,7 @@ class LangSAM:
         save_args={},
         return_results=False,
         return_coords=False,
+        detection_transform=None,
         **kwargs,
     ):
         """
@@ -253,6 +254,7 @@ class LangSAM:
             dtype (np.dtype, optional): Data type for the prediction. Defaults to np.uint8.
             save_args (dict, optional): Save arguments for the prediction. Defaults to {}.
             return_results (bool, optional): Whether to return the results. Defaults to False.
+            detection_transform (callable, optional): A callable to apply to each mask. Defaults to None.
 
         Returns:
             tuple: Tuple containing masks, boxes, phrases, and logits.
@@ -312,12 +314,17 @@ class LangSAM:
                 image_np[..., 0], dtype=dtype
             )  # Adjusted for single channel
 
-            for i, (box, mask) in enumerate(zip(boxes, masks)):
+            for i, (box, mask, logit, phrase) in enumerate(zip(boxes, masks, logits, phrases)):
                 # Convert tensor to numpy array if necessary and ensure it contains integers
                 if isinstance(mask, torch.Tensor):
                     mask = (
                         mask.cpu().numpy().astype(dtype)
                     )  # If mask is on GPU, use .cpu() before .numpy()
+
+                # Apply the user-supplied callable if provided
+                if detection_transform:
+                    mask = detection_transform(box, mask, logit, phrase, i)
+
                 mask_overlay += ((mask > 0) * (i + 1)).astype(
                     dtype
                 )  # Assign a unique value for each mask

@@ -2848,7 +2848,8 @@ def regularize(source, output=None, crs="EPSG:4326", **kwargs):
         return result
 
 
-def split_raster(filename, out_dir, tile_size=256, overlap=0):
+def split_raster(filename, out_dir, tile_size=256, overlap=0,
+                 output_driver="GTiff"):
     """Split a raster into tiles.
 
     Args:
@@ -2856,6 +2857,7 @@ def split_raster(filename, out_dir, tile_size=256, overlap=0):
         out_dir (str): The path to the output directory.
         tile_size (int | tuple, optional): The size of the tiles. Can be an integer or a tuple of (width, height). Defaults to 256.
         overlap (int, optional): The number of pixels to overlap between tiles. Defaults to 0.
+        output_driver (str, optional): The output driver. Defaults to "GTiff".
 
     Raises:
         ImportError: Raised if GDAL is not installed.
@@ -2925,7 +2927,7 @@ def split_raster(filename, out_dir, tile_size=256, overlap=0):
             output_file = f"{out_dir}/tile_{i}_{j}.tif"
 
             # Create a new dataset for the tile
-            driver = gdal.GetDriverByName("GTiff")
+            driver = gdal.GetDriverByName(output_driver)
             tile_ds = driver.Create(
                 output_file,
                 tile_width,

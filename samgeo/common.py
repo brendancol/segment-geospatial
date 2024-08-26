@@ -2848,7 +2848,8 @@ def regularize(source, output=None, crs="EPSG:4326", **kwargs):
         return result
 
 
-def split_raster(filename, out_dir, tile_size=256, overlap=0):
+def split_raster(filename, out_dir, tile_size=256, overlap=0,
+        output_driver="GTiff", tile_post_processor=None):
     """Split a raster into tiles.
 
     Args:
@@ -2856,6 +2857,7 @@ def split_raster(filename, out_dir, tile_size=256, overlap=0):
         out_dir (str): The path to the output directory.
         tile_size (int | tuple, optional): The size of the tiles. Can be an integer or a tuple of (width, height). Defaults to 256.
         overlap (int, optional): The number of pixels to overlap between tiles. Defaults to 0.
+        tile_post_processor (callable, optional): User-supplied callable `func(tile_ds: gdal.Dataset)` to run on each tile dataset
 
     Raises:
         ImportError: Raised if GDAL is not installed.
@@ -2873,6 +2875,11 @@ def split_raster(filename, out_dir, tile_size=256, overlap=0):
             output = filename.split("/")[-1]
             download_file(filename, output)
             filename = output
+
+    if tile_post_processor is not None and not callable(tile_post_processor):
+        raise ValueError(
+            "`tile_post_processor` arg must be a callable with signature `func(tile_ds) -> None;`"
+        )
 
     # Open the input GeoTIFF file
     ds = gdal.Open(filename)
@@ -2948,15 +2955,19 @@ def split_raster(filename, out_dir, tile_size=256, overlap=0):
             tile_ds.SetGeoTransform(tile_geotransform)
             tile_ds.SetProjection(ds.GetProjection())
 
-            # Read the data from the input raster band(s) and write it to the tile band(s)
+            # Read the data from the input raster band(s)
+            # and write it to the tile band(s)
             for k in range(ds.RasterCount):
                 band = ds.GetRasterBand(k + 1)
                 tile_band = tile_ds.GetRasterBand(k + 1)
                 tile_data = band.ReadAsArray(x_min, y_min, tile_width, tile_height)
                 tile_band.WriteArray(tile_data)
 
-            # Close the tile dataset
-            tile_ds = None
+            try:
+                if tile_post_processor is not None:
+                    tile_post_processor(tile_ds)
+            finally:
+                tile_ds = None
 
     # Close the input dataset
     ds = None
